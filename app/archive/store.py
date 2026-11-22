@@ -38,7 +38,39 @@ class Archive:
             record = db.execute('SELECT packet FROM monitoring WHERE id = ?', (run_id,)).fetchone()[0]
         return json.loads(record), reused
 
+    def restore(self, run_id, packet):
+        """Insert a recovered packet under its original identifier.
+
+        The insert is a single conflict-tolerant statement, so two shifts
+        submitting the same certificate at once still create one record.  A
+        failed verification never reaches this method, leaving the identifier
+        free for the genuine certificate.
+        """
+        with self.connection() as db:
+            cursor = db.execute('INSERT INTO monitoring VALUES (?, ?) ON CONFLICT(id) DO NOTHING',
+                                (run_id, canonical(packet)))
+            inserted = cursor.rowcount == 1
+            record = db.execute('SELECT packet FROM monitoring WHERE id = ?', (run_id,)).fetchone()[0]
+        stored = json.loads(record)
+        if not inserted:
+            if stored.get('originals') != packet['originals'] or stored.get('results') != packet['results']:
+                raise InputError('RUN_CONFLICT', '归档编号已被不同内容占用', 409)
+            if not stored.get('verification') and packet.get('verification'):
+                stored['verification'] = packet['verification']
+                with self.connection() as db:
+                    db.execute('UPDATE monitoring SET packet = ? WHERE id = ?', (canonical(stored), run_id))
+        return stored, not inserted
+
     def history(self):
         with self.connection() as db:
-            return [json.loads(row[0]) for row in db.execute(
-                "SELECT json_extract(packet, '$.manifest') FROM monitoring ORDER BY rowid DESC LIMIT 100")]
+            rows = db.execute(
+                "SELECT json_extract(packet, '$.manifest'), json_extract(packet, '$.verification.status') "
+                "FROM monitoring ORDER BY rowid DESC LIMIT 100").fetchall()
+        history = []
+        for manifest, status in rows:
+            if isinstance(manifest, str):
+                manifest = json.loads(manifest)
+            # Packets written before verification existed were computed at
+            # archive time under their own rule version.
+            history.append(manifest | {'verification': status or 'NATIVE'})
+        return history

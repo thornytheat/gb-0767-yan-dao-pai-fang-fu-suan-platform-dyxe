@@ -39,3 +39,31 @@ filter?.addEventListener('change', () => {
     row.hidden = filter.value !== 'all' && (filter.value === 'late' ? row.dataset.late !== 'True' : row.dataset.state !== filter.value);
   }
 });
+const restoreForm = document.querySelector('#restore-form');
+const restoreFile = document.querySelector('#restore-file');
+const restoreFeedback = document.querySelector('#restore-feedback');
+restoreForm?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = restoreForm.querySelector('button');
+  button.disabled = true;
+  restoreFeedback.hidden = false;
+  restoreFeedback.dataset.failed = 'false';
+  restoreFeedback.textContent = '正在校验证据单';
+  try {
+    let payload;
+    try { payload = JSON.parse(await restoreFile.files[0].text()); }
+    catch (_) { throw new Error('证据单不是有效 JSON'); }
+    const response = await fetch('/api/restore', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload),
+    });
+    const record = await response.json();
+    if (!response.ok) throw new Error(record.detail);
+    restoreFeedback.textContent = record.reused ? '已复用现有留档' : '留档已恢复';
+    location.assign(`/monitor/evidence?run=${encodeURIComponent(record.run_id)}`);
+  } catch (error) {
+    restoreFeedback.dataset.failed = 'true';
+    restoreFeedback.textContent = error.message || '恢复失败，请重试';
+  } finally {
+    button.disabled = false;
+  }
+});

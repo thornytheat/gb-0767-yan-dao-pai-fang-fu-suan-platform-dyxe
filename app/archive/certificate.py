@@ -1,8 +1,9 @@
 from hashlib import sha256
 
-from app.archive.manifest import canonical
+from app.archive.manifest import canonical, evidence_core
 from app.monitor.source import digests
 from app.errors import InputError
+from app.rules import verification_for
 
 
 def issue(packet):
@@ -13,5 +14,6 @@ def issue(packet):
     if delta:
         raise InputError('EVIDENCE_UNBALANCED', '分钟勾稽尚未平衡', 409)
     claims = {'run_id': packet['manifest']['run_id'], 'certificate': '监测证据单',
-              'minute_balance': delta, 'sha256': sha256(canonical(packet).encode()).hexdigest()}
+              'minute_balance': delta, 'sha256': sha256(canonical(evidence_core(packet)).encode()).hexdigest(),
+              'verification': verification_for(packet)}
     return claims | packet

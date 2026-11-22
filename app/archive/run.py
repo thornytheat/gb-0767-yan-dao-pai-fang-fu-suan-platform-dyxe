@@ -3,6 +3,7 @@ from time import perf_counter
 from app.archive.manifest import batch_key, manifest
 from app.monitor.inspection import Inspection
 from app.monitor.source import input_packet
+from app.rules import native_verification
 
 
 def archive_run(store, payload):
@@ -15,5 +16,5 @@ def archive_run(store, payload):
     audit = Inspection(files)
     results = audit.results()
     packet = {'manifest': manifest(run_id, hashes, vars(audit.window), name, started),
-              'originals': files, 'results': results}
+              'originals': files, 'results': results, 'verification': native_verification()}
     return store.commit(run_id, packet)

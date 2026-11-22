@@ -10,3 +10,9 @@ LABELS = {
     'MATCH': '容差内', 'DEVIATION': '超过容差', 'NO_REPORT': '未找到报送',
     'NO_REFERENCE': '无可比小时值', 'REPORT_CONFLICT': '报送值冲突', 'OUTSIDE_REPORT': '报送超窗',
 }
+
+VERIFICATIONS = {
+    'NATIVE': '归档复算（按现行规则）',
+    'RULE_VERIFIED': '附件校验通过 · 按原规则重算一致',
+    'ATTACHMENT_VERIFIED': '附件校验通过 · 原规则已停用未重算',
+}

@@ -14,6 +14,7 @@
 | M5 报送差异对账 | 核对差值、单据和游离报送 | `GET /api/samples/dirty/reports` | `app/monitor/reconcile.py` `app/monitor/reports.py` | `tests/test_reports.py` |
 | M6 批次留档复跑 | 汇总归档、并发复跑和查看历史 | `POST /api/runs` | `app/archive/run.py` `app/archive/store.py` | `tests/test_runs.py` |
 | M7 监测证据签发 | 下载和校验原件、摘要和判据 | `GET /api/export/{id}` | `app/archive/certificate.py` | `tests/test_evidence.py` |
+| M8 证据单恢复 | 用已签发证据单重建留档并区分核验状态 | `POST /api/restore` | `app/archive/restore.py` `app/rules.py` | `tests/test_restore.py` |
 
 ## 陷阱登记
 
@@ -40,3 +41,12 @@
 ## 已知边界
 
 输入接受 UTF-8 原件包。监测窗口最多 24 小时，数据包限长以控制内存。不推断本地无偏移时间或将分钟平均换算成质量排放。
+
+## 证据单恢复
+
+- 恢复入口 `POST /api/restore`，实现 `app/archive/restore.py`，规则登记 `app/rules.py`，落库 `Archive.restore`。
+- 附件校验：逐文件 SHA-256、`manifest.sha256`、内容摘要（仅覆盖 `manifest/originals/results`）、分钟勾稽、小时结论守恒、编号与原件摘要自洽。
+- 规则校验：仅当证据单记录的规则版本仍登记在 `ENGINES` 时重算，且以证据单自带的「原规则」而非当前规则复算；该版本不再登记则只做附件校验。
+- 写入：`INSERT … ON CONFLICT(id) DO NOTHING` 单语句，并发与重试不重复建档；内容不同的同号证据单报 `RUN_CONFLICT`，校验失败不写库。
+- 留档页面按 `verification.status` 显示「按原规则重算一致」「原规则已停用未重算」或「归档复算」。
+- 测试：`tests/test_restore.py`。
